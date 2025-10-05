@@ -1,0 +1,319 @@
+import java.util.ArrayList;
+import java.util.List;
+
+// Класс Category для представления категорий товаров
+class Category {
+    private String name;
+    private List<Product> products;
+
+    public Category(String name) {
+        this.name = name;
+        this.products = new ArrayList<>();
+    }
+
+    // Getter for category name
+    public String getName() {
+        return name;
+    }
+
+    // Attempt to set category name with validation
+    public boolean trySetName(String name) {
+        if (name != null && name.trim().length() >= 2) {
+            this.name = name.trim();
+            return true;
+        }
+        return false;
+    }
+
+    // Add product with validation checks
+    public boolean addProduct(Product product) {
+        // Check for null and duplicates
+        if (product == null || products.contains(product)) {
+            return false;
+        }
+        products.add(product);
+        return true;
+    }
+
+    // Remove product
+    public boolean removeProduct(Product product) {
+        return products.remove(product);
+    }
+
+    // Getter for products list
+    public List<Product> getProducts() {
+        return new ArrayList<>(products); // Return copy for encapsulation
+    }
+}
+
+// Класс Product для представления товаров с инкапсуляцией и валидацией
+class Product {
+    // Private fields for encapsulation
+    private String id;
+    private String name;
+    private String description;
+    private double price;
+    private int quantity;
+    private Category category;
+
+    // Static members
+    public static final String DEFAULT_CURRENCY = "KZT";
+    private static int SEQ = 1;
+    private static int createdCount = 0;
+
+    // Helper method for generating sequence
+    private static String nextSeq() {
+        return String.valueOf(SEQ++);
+    }
+
+    // Get created count
+    public static int getCreatedCount() {
+        return createdCount;
+    }
+
+    // No-args constructor
+    public Product() {
+        this("AUTO-" + nextSeq(), "Unnamed", null, 0.0, 0, null);
+    }
+
+    // Required-args constructor
+    public Product(String id, String name, double price) {
+        this(id, name, null, price, 0, null);
+    }
+
+    // Full-args constructor
+    public Product(String id, String name, String description, double price, int quantity, Category category) {
+        // Increment created count
+        createdCount++;
+        
+        // Initialize with validation using trySet methods
+        this.id = "default";
+        this.name = "default";
+        this.description = null;
+        this.price = 0.0;
+        this.quantity = 0;
+        this.category = null;
+        
+        // Apply validation for each parameter
+        trySetId(id);
+        trySetName(name);
+        trySetDescription(description);
+        trySetPrice(price);
+        trySetQuantity(quantity);
+        trySetCategory(category);
+    }
+
+    // Static factory methods
+    
+    public static Product of(String id, String name, double price) {
+        return new Product(id, name, price);
+    }
+
+    public static Product freeSample(String name) {
+        Product sample = new Product();
+        sample.trySetName(name);
+        sample.trySetPrice(0.0);
+        sample.trySetQuantity(1);
+        return sample;
+    }
+
+    // Getters (read-only access)
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public double getPrice() { return price; }
+    public int getQuantity() { return quantity; }
+    public Category getCategory() { return category; }
+
+    // Guarded mutators (protected setters with validation)
+    
+    public boolean trySetId(String id) {
+        // Validation: not null, trimmed length >= 2
+        if (id != null && id.trim().length() >= 2) {
+            this.id = id.trim();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean trySetName(String name) {
+        // Validation: not null, trimmed length >= 2
+        if (name != null && name.trim().length() >= 2) {
+            this.name = name.trim();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean trySetDescription(String description) {
+        // Validation: can be null or trimmed length <= 200
+        if (description == null) {
+            this.description = null;
+            return true;
+        }
+        String trimmed = description.trim();
+        if (trimmed.length() <= 200) {
+            this.description = trimmed;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean trySetPrice(double price) {
+        // Validation: price between 0.0 and 1,000,000.0
+        if (price >= 0.0 && price <= 1_000_000.0) {
+            this.price = price;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean trySetQuantity(int quantity) {
+        // Validation: quantity between 0 and 1,000,000
+        if (quantity >= 0 && quantity <= 1_000_000) {
+            this.quantity = quantity;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean trySetCategory(Category category) {
+        // Validation: category not null
+        if (category != null) {
+            this.category = category;
+            return true;
+        }
+        return false;
+    }
+
+    // Inventory management methods
+    
+    public boolean addStock(int amount) {
+        // Validation: amount > 0 and new quantity within limits
+        if (amount > 0) {
+            long newQuantity = (long) this.quantity + amount;
+            if (newQuantity <= 1_000_000) {
+                this.quantity = (int) newQuantity;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean sellProduct(int amount) {
+        // Validation: amount > 0 and sufficient stock available
+        if (amount > 0 && amount <= this.quantity) {
+            this.quantity -= amount;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean applyDiscount(double percent) {
+        // Validation: discount between 0 and 90%
+        if (percent >= 0 && percent <= 90) {
+            this.price = this.price * (1 - percent / 100);
+            return true;
+        }
+        return false;
+    }
+
+    // Preview discount without changing price
+    public double previewDiscount(double percent) {
+        if (percent >= 0 && percent <= 90) {
+            return this.price * (1 - percent / 100);
+        }
+        return this.price; // Return original price if discount invalid
+    }
+
+    // Calculate total inventory value
+    public double calculateTotalValue() {
+        return this.price * this.quantity;
+    }
+
+    // Computed stock status
+    public String getStockStatus() {
+        if (this.quantity == 0) {
+            return "OUT_OF_STOCK";
+        } else if (this.quantity <= 10) {
+            return "LOW";
+        } else {
+            return "IN_STOCK";
+        }
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Product{id='%s', name='%s', price=%.2f, quantity=%d, status=%s}", 
+                           id, name, price, quantity, getStockStatus());
+    }
+}
+
+// Главный демонстрационный класс
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("=== Practice 3: Constructors & Static Factory Demo ===\n");
+
+        // Create category for testing
+        Category electronics = new Category("Electronics");
+        Category stationery = new Category("Stationery");
+
+        System.out.println("=== CREATING PRODUCTS VIA DIFFERENT CONSTRUCTORS ===\n");
+
+        // 1. No-args constructor
+        Product p1 = new Product();
+        System.out.println("1. No-args constructor: " + p1);
+
+        // 2. Required-args constructor
+        Product p2 = new Product("P100", "Notebook", 950.0);
+        System.out.println("2. Required-args constructor: " + p2);
+
+        // 3. Full-args constructor
+        Product p3 = new Product("P200", "Headphones", "BT 5.0 Wireless", 14990.0, 5, electronics);
+        System.out.println("3. Full-args constructor: " + p3);
+
+        System.out.println("\n=== CREATING PRODUCTS VIA STATIC FACTORY METHODS ===\n");
+
+        // 4. Static factory method 'of'
+        Product p4 = Product.of("P300", "Pencil", 120.0);
+        System.out.println("4. Static factory Product.of(): " + p4);
+
+        // 5. Static factory method 'freeSample'
+        Product p5 = Product.freeSample("Sticker");
+        System.out.println("5. Static factory freeSample(): " + p5);
+
+        System.out.println("\n=== DEMONSTRATING VALIDATION IN CONSTRUCTORS ===\n");
+
+        // Test constructor with invalid parameters
+        Product invalidProduct = new Product("", "A", "Invalid description that is way too long and should be rejected because it exceeds the 200 character limit that we have set for product descriptions in our validation logic", -5.0, -10, null);
+        System.out.println("Invalid constructor parameters handled safely: " + invalidProduct);
+        System.out.println("Price remains at safe default: " + invalidProduct.getPrice());
+        System.out.println("Quantity remains at safe default: " + invalidProduct.getQuantity());
+
+        System.out.println("\n=== DEMONSTRATING AUTO-GENERATED IDs ===\n");
+
+        // Create more products to show auto-generated IDs
+        Product p6 = new Product();
+        Product p7 = Product.freeSample("Bookmark");
+        
+        System.out.println("Auto-generated ID for p6: " + p6.getId());
+        System.out.println("Auto-generated ID for p7: " + p7.getId());
+        System.out.println("Auto-generated ID for p1 (earlier): " + p1.getId());
+
+        System.out.println("\n=== FINAL STATISTICS ===\n");
+
+        // Show created count
+        System.out.println("Total products created: " + Product.getCreatedCount());
+        System.out.println("Default currency: " + Product.DEFAULT_CURRENCY);
+
+        System.out.println("\n=== ALL PRODUCTS SUMMARY ===\n");
+        System.out.println("p1: " + p1);
+        System.out.println("p2: " + p2);
+        System.out.println("p3: " + p3);
+        System.out.println("p4: " + p4);
+        System.out.println("p5: " + p5);
+        System.out.println("p6: " + p6);
+        System.out.println("p7: " + p7);
+        System.out.println("invalidProduct: " + invalidProduct);
+    }
+}
