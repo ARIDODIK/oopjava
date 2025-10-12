@@ -1,0 +1,231 @@
+import java.util.*;
+
+// ===================== CONSTANTS =====================
+class StadiumConstants {
+    public static final int VIP_SEATS = 5;
+    public static final int STUDENT_SEATS = 10;
+    public static final int STANDARD_SEATS = 15;
+
+    public static final int VIP_PRICE = 10000;
+    public static final int STUDENT_PRICE = 3000;
+    public static final int STANDARD_PRICE = 5000;
+}
+
+// ===================== ENUM =====================
+enum SectorType {
+    VIP(10000),
+    STUDENT(3000),
+    STANDARD(5000);
+
+    private final int basePrice;
+
+    SectorType(int basePrice) {
+        this.basePrice = basePrice;
+    }
+
+    public int getBasePrice() {
+        return basePrice;
+    }
+}
+
+// ===================== MODEL =====================
+class Ticket {
+    private SectorType sector;
+    private int seatNumber;
+    private int price;
+    private boolean isSold;
+
+    public Ticket(SectorType sector, int seatNumber, int price) {
+        this.sector = sector;
+        this.seatNumber = seatNumber;
+        this.price = price;
+        this.isSold = false;
+    }
+
+    public SectorType getSector() { return sector; }
+    public int getSeatNumber() { return seatNumber; }
+    public int getPrice() { return price; }
+    public boolean isSold() { return isSold; }
+    public void setSold(boolean sold) { isSold = sold; }
+
+    @Override
+    public String toString() {
+        return String.format("[%s, seat %d, price %d₸, %s]",
+                sector, seatNumber, price, isSold ? "SOLD" : "Available");
+    }
+}
+
+// ===================== REPOSITORY =====================
+interface ITicketRepository {
+    List<Ticket> getTicketsBySector(SectorType sector);
+    Ticket findTicket(SectorType sector, int seatNumber);
+    List<Ticket> getAllTickets();
+}
+
+class TicketRepositoryImpl implements ITicketRepository {
+    private List<Ticket> tickets = new ArrayList<>();
+
+    public TicketRepositoryImpl() {
+        for (SectorType sector : SectorType.values()) {
+            int seats = switch (sector) {
+                case VIP -> StadiumConstants.VIP_SEATS;
+                case STUDENT -> StadiumConstants.STUDENT_SEATS;
+                case STANDARD -> StadiumConstants.STANDARD_SEATS;
+            };
+            for (int i = 1; i <= seats; i++) {
+                tickets.add(new Ticket(sector, i, sector.getBasePrice()));
+            }
+        }
+    }
+
+    @Override
+    public List<Ticket> getTicketsBySector(SectorType sector) {
+        List<Ticket> result = new ArrayList<>();
+        for (Ticket t : tickets) {
+            if (t.getSector() == sector) result.add(t);
+        }
+        return result;
+    }
+
+    @Override
+    public Ticket findTicket(SectorType sector, int seatNumber) {
+        for (Ticket t : tickets) {
+            if (t.getSector() == sector && t.getSeatNumber() == seatNumber) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public List<Ticket> getAllTickets() {
+        return tickets;
+    }
+}
+
+// ===================== SERVICE =====================
+interface ITicketService {
+    boolean buyTicket(SectorType sector, int seatNumber);
+    void showAvailableTickets(SectorType sector);
+    List<Ticket> getAllTickets();
+}
+
+class TicketServiceImpl implements ITicketService {
+    private final ITicketRepository repo;
+
+    public TicketServiceImpl(ITicketRepository repo) {
+        this.repo = repo;
+    }
+
+    @Override
+    public boolean buyTicket(SectorType sector, int seatNumber) {
+        Ticket ticket = repo.findTicket(sector, seatNumber);
+        if (ticket == null) {
+            System.out.println("❌ Ticket not found.");
+            return false;
+        }
+        if (ticket.isSold()) {
+            System.out.println("⚠️ Ticket already sold!");
+            return false;
+        }
+        ticket.setSold(true);
+        System.out.println("✅ Ticket purchased: " + ticket);
+        return true;
+    }
+
+    @Override
+    public void showAvailableTickets(SectorType sector) {
+        List<Ticket> available = new ArrayList<>();
+        for (Ticket t : repo.getTicketsBySector(sector)) {
+            if (!t.isSold()) available.add(t);
+        }
+        TicketUtils.printTickets(available);
+    }
+
+    @Override
+    public List<Ticket> getAllTickets() {
+        return repo.getAllTickets();
+    }
+}
+
+// ===================== UTILS =====================
+class TicketUtils {
+    public static void printTickets(List<Ticket> tickets) {
+        if (tickets.isEmpty()) {
+            System.out.println("No available tickets.");
+        } else {
+            for (Ticket t : tickets) {
+                System.out.println(t);
+            }
+        }
+    }
+
+    public static int calculateRevenue(List<Ticket> tickets) {
+        int sum = 0;
+        for (Ticket t : tickets) {
+            if (t.isSold()) sum += t.getPrice();
+        }
+        return sum;
+    }
+}
+
+// ===================== MAIN MENU =====================
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        ITicketRepository repo = new TicketRepositoryImpl();
+        ITicketService service = new TicketServiceImpl(repo);
+
+        while (true) {
+            System.out.println("\n=== FOOTBALL MATCH TICKET SALES ===");
+            System.out.println("1. Show tickets by sector");
+            System.out.println("2. Buy ticket");
+            System.out.println("3. Show statistics");
+            System.out.println("0. Exit");
+            System.out.print("Choose: ");
+
+            int choice;
+            try {
+                choice = Integer.parseInt(sc.nextLine());
+            } catch (Exception e) {
+                System.out.println("Invalid input!");
+                continue;
+            }
+
+            switch (choice) {
+                case 1 -> {
+                    System.out.print("Enter sector (VIP, STUDENT, STANDARD): ");
+                    String sectorName = sc.nextLine().trim().toUpperCase();
+                    try {
+                        service.showAvailableTickets(SectorType.valueOf(sectorName));
+                    } catch (Exception e) {
+                        System.out.println("Invalid sector name!");
+                    }
+                }
+                case 2 -> {
+                    try {
+                        System.out.print("Enter sector: ");
+                        SectorType sector = SectorType.valueOf(sc.nextLine().trim().toUpperCase());
+                        System.out.print("Enter seat number: ");
+                        int seat = Integer.parseInt(sc.nextLine());
+                        service.buyTicket(sector, seat);
+                    } catch (Exception e) {
+                        System.out.println("❌ Invalid input!");
+                    }
+                }
+                case 3 -> {
+                    List<Ticket> all = service.getAllTickets();
+                    long soldCount = all.stream().filter(Ticket::isSold).count();
+                    int revenue = TicketUtils.calculateRevenue(all);
+                    System.out.println("Total sold tickets: " + soldCount);
+                    System.out.println("Total revenue: " + revenue + "₸");
+                }
+                case 0 -> {
+                    System.out.println("Goodbye!");
+                    return;
+                }
+                default -> System.out.println("Invalid choice.");
+            }
+        }
+    }
+}
