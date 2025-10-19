@@ -1,0 +1,208 @@
+import java.util.*;
+
+// Interfeysy
+interface PriceRule {
+    double apply(Product p, int kolichestvo);
+}
+
+interface TaxCalculator {
+    double calculateTax(Product p, int kolichestvo, double subtotal);
+}
+
+// Abstract class dlya aktsiy
+abstract class Promotion implements PriceRule {
+    protected String name;
+    
+    public Promotion(String name) {
+        this.name = name;
+    }
+    
+    public String getName() {
+        return name;
+    }
+}
+
+// Product
+class Product {
+    private String name;
+    private double price;
+    
+    public Product(String name, double price) {
+        this.name = name;
+        this.price = price;
+    }
+    
+    public String getName() { return name; }
+    public double getPrice() { return price; }
+}
+
+// Fizicheskiy product (s dostavkoy)
+class PhysicalProduct extends Product {
+    private double shippingCost;
+    
+    public PhysicalProduct(String name, double price, double shippingCost) {
+        super(name, price);
+        this.shippingCost = shippingCost;
+    }
+    
+    public double getShippingCost() { return shippingCost; }
+}
+
+// Tsifrovoy product (bez dostavki)
+class DigitalProduct extends Product {
+    public DigitalProduct(String name, double price) {
+        super(name, price);
+    }
+}
+
+// Realizatsii aktsiy
+class PercentagePromotion extends Promotion {
+    private double discountPercent;
+    
+    public PercentagePromotion(String name, double discountPercent) {
+        super(name);
+        this.discountPercent = discountPercent;
+    }
+    
+    @Override
+    public double apply(Product p, int kolichestvo) {
+        double originalTotal = p.getPrice() * kolichestvo;
+        return originalTotal * (1 - discountPercent / 100);
+    }
+}
+
+class FixedPromotion extends Promotion {
+    private double discountAmount;
+    
+    public FixedPromotion(String name, double discountAmount) {
+        super(name);
+        this.discountAmount = discountAmount;
+    }
+    
+    @Override
+    public double apply(Product p, int kolichestvo) {
+        double originalTotal = p.getPrice() * kolichestvo;
+        return Math.max(0, originalTotal - discountAmount);
+    }
+}
+
+class BuyOneGetOneHalf extends Promotion {
+    public BuyOneGetOneHalf(String name) {
+        super(name);
+    }
+    
+    @Override
+    public double apply(Product p, int kolichestvo) {
+        double price = p.getPrice();
+        int pary = kolichestvo / 2;
+        int odinaki = kolichestvo % 2;
+        return (pary * price * 1.5) + (odinaki * price);
+    }
+}
+
+// Realizatsii nalogov
+class NoTax implements TaxCalculator {
+    @Override
+    public double calculateTax(Product p, int kolichestvo, double subtotal) {
+        return 0;
+    }
+}
+
+class StandardTax implements TaxCalculator {
+    private double taxRate;
+    
+    public StandardTax(double taxRate) {
+        this.taxRate = taxRate;
+    }
+    
+    @Override
+    public double calculateTax(Product p, int kolichestvo, double subtotal) {
+        return subtotal * (taxRate / 100);
+    }
+}
+
+class DigitalTax implements TaxCalculator {
+    private double taxRate;
+    
+    public DigitalTax(double taxRate) {
+        this.taxRate = taxRate;
+    }
+    
+    @Override
+    public double calculateTax(Product p, int kolichestvo, double subtotal) {
+        if (p instanceof DigitalProduct) {
+            return subtotal * (taxRate / 100);
+        }
+        return 0;
+    }
+}
+
+// Glavny class s main metodom
+public class Main {
+    public static void main(String[] args) {
+        // Sozdaem produkty
+        Product noutbuk = new PhysicalProduct("Noutbuk", 1000, 50);
+        Product ebook = new DigitalProduct("Electronnaya kniga", 100);
+        
+        // Sozdaem aktsii
+        Promotion tenPercent = new PercentagePromotion("Skidka 10%", 10);
+        Promotion fiftyOff = new FixedPromotion("Skidka 50", 50);
+        Promotion bogo = new BuyOneGetOneHalf("1+1 poltseny");
+        
+        List<Promotion> promotions = Arrays.asList(tenPercent, fiftyOff, bogo);
+        
+        // Sozdaem nalogovye politiki
+        TaxCalculator noTax = new NoTax();
+        TaxCalculator standardTax = new StandardTax(20);
+        TaxCalculator digitalTax = new DigitalTax(10);
+        
+        System.out.println("=== PROSTOY MAGAZIN ===\n");
+        
+        // Testiruem dlya kajdogo produkta
+        for (Product product : Arrays.asList(noutbuk, ebook)) {
+            System.out.println("Tovar: " + product.getName() + " (Tsena: $" + product.getPrice() + ")");
+            System.out.println("----------------------------------------");
+            
+            for (int kolichestvo = 1; kolichestvo <= 2; kolichestvo++) {
+                System.out.println("Kolichestvo: " + kolichestvo);
+                
+                for (Promotion promo : promotions) {
+                    // Rasschityvaem itog
+                    double subtotal = promo.apply(product, kolichestvo);
+                    
+                    // Vybiram nalog v zavisimosti ot tipa tovara
+                    double tax = (product instanceof DigitalProduct) ?
+                                digitalTax.calculateTax(product, kolichestvo, subtotal) :
+                                standardTax.calculateTax(product, kolichestvo, subtotal);
+                    
+                    // Dostavka tolko dlya fizicheskih tovarov
+                    double shipping = (product instanceof PhysicalProduct) ?
+                                    ((PhysicalProduct) product).getShippingCost() : 0;
+                    
+                    double total = subtotal + tax + shipping;
+                    
+                    System.out.printf("  %-15s: $%6.2f + nalog $%5.2f + dostavka $%3.2f = ITOGO $%7.2f%n",
+                        promo.getName(), subtotal, tax, shipping, total);
+                }
+                System.out.println();
+            }
+        }
+        
+        // Demonstratsiya polimorfizma
+        System.out.println("=== DEMONSTRATSIYA POLIMORFIZMA ===");
+        for (Promotion promo : promotions) {
+            System.out.println("Aktsiya: " + promo.getName() + 
+                             " | Tip: " + promo.getClass().getSimpleName());
+        }
+        
+        // Proverka raboty aktsiy
+        System.out.println("\n=== PROVERKA AKTSIY ===");
+        Product testProduct = new Product("Test", 100);
+        System.out.println("Test product: " + testProduct.getName() + " po tsene $" + testProduct.getPrice());
+        
+        for (Promotion promo : promotions) {
+            double result = promo.apply(testProduct, 2);
+            System.out.println(promo.getName() + " dlya 2 sht: $" + result);
+        }
+    }
+}
