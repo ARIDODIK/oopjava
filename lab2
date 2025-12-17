@@ -1,0 +1,206 @@
+import java.util.ArrayList;
+import java.util.List;
+
+/* =========================
+   CATEGORY
+   ========================= */
+class Category {
+    private String id;
+    private String name;
+    private String description;
+    private List<Product> products = new ArrayList<>();
+
+    public Category(String id, String name, String description) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+    }
+
+    public boolean addProduct(Product p) {
+        if (p == null) return false;
+        if (products.contains(p)) return false;
+        products.add(p);
+        return true;
+    }
+
+    public void removeProduct(Product p) {
+        products.remove(p);
+    }
+
+    public double getTotalValue() {
+        double sum = 0;
+        for (Product p : products) {
+            sum += p.calculateTotalValue();
+        }
+        return sum;
+    }
+
+    public void displayCategoryInfo() {
+        System.out.println("\n=== CATEGORY ===");
+        System.out.println("Name: " + name);
+        for (Product p : products) {
+            p.displayProductInfo();
+            System.out.println("----------------");
+        }
+        System.out.println("Category total value: " + getTotalValue());
+    }
+}
+
+/* =========================
+   PRODUCT
+   ========================= */
+class Product {
+
+    /* --- all fields PRIVATE --- */
+    private String id;
+    private String name;
+    private String description;
+    private double price;
+    private int quantity;
+    private Category category;
+
+    public Product(String id, String name, String description,
+                   double price, int quantity, Category category) {
+
+        trySetId(id);
+        trySetName(name);
+        trySetDescription(description);
+        trySetPrice(price);
+        trySetQuantity(quantity);
+        trySetCategory(category);
+    }
+
+    /* ===== GETTERS ONLY ===== */
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public double getPrice() { return price; }
+    public int getQuantity() { return quantity; }
+    public Category getCategory() { return category; }
+
+    /* ===== GUARDED MUTATORS ===== */
+    public boolean trySetId(String id) {
+        if (id == null) return false;
+        id = id.trim();
+        if (id.length() < 2) return false;
+        this.id = id;
+        return true;
+    }
+
+    public boolean trySetName(String name) {
+        if (name == null) return false;
+        name = name.trim();
+        if (name.length() < 2) return false;
+        this.name = name;
+        return true;
+    }
+
+    public boolean trySetDescription(String description) {
+        if (description == null) {
+            this.description = null;
+            return true;
+        }
+        description = description.trim();
+        if (description.length() > 200) return false;
+        this.description = description;
+        return true;
+    }
+
+    public boolean trySetPrice(double price) {
+        if (price < 0.0 || price > 1_000_000.0) return false;
+        this.price = price;
+        return true;
+    }
+
+    public boolean trySetQuantity(int quantity) {
+        if (quantity < 0 || quantity > 1_000_000) return false;
+        this.quantity = quantity;
+        return true;
+    }
+
+    public boolean trySetCategory(Category category) {
+        if (category == null) return false;
+        this.category = category;
+        return true;
+    }
+
+    /* ===== INVENTORY ===== */
+    public boolean addStock(int amount) {
+        if (amount <= 0) return false;
+        if (quantity + amount > 1_000_000) return false;
+        quantity += amount;
+        return true;
+    }
+
+    public boolean sellProduct(int amount) {
+        if (amount <= 0) return false;
+        if (amount > quantity) return false;
+        quantity -= amount;
+        return true;
+    }
+
+    public boolean applyDiscount(double percent) {
+        if (percent < 0 || percent > 90) return false;
+        price = price * (1 - percent / 100);
+        return true;
+    }
+
+    /* ===== COMPUTED ===== */
+    public double calculateTotalValue() {
+        return price * quantity;
+    }
+
+    public String getStockStatus() {
+        if (quantity == 0) return "OUT_OF_STOCK";
+        if (quantity <= 10) return "LOW";
+        return "IN_STOCK";
+    }
+
+    public void displayProductInfo() {
+        System.out.println("Product: " + name);
+        System.out.println("Price: " + price);
+        System.out.println("Quantity: " + quantity);
+        System.out.println("Stock status: " + getStockStatus());
+        System.out.println("Total value: " + calculateTotalValue());
+    }
+}
+
+/* =========================
+   SHOP DEMO
+   ========================= */
+public class Main {
+    public static void main(String[] args) {
+
+        Category stationery = new Category(
+                "C1",
+                "Stationery",
+                "Office supplies"
+        );
+
+        Product pen = new Product(
+                "P1",
+                "Pen",
+                "Blue ink pen",
+                100.0,
+                5,
+                stationery
+        );
+
+        System.out.println("=== ACCEPTED ACTIONS ===");
+        System.out.println("trySetPrice(250): " + pen.trySetPrice(250.0));
+        System.out.println("addStock(20): " + pen.addStock(20));
+        System.out.println("Stock status: " + pen.getStockStatus());
+
+        System.out.println("\n=== REJECTED ACTIONS ===");
+        System.out.println("trySetPrice(-1): " + pen.trySetPrice(-1.0));
+        System.out.println("trySetName(\"A\"): " + pen.trySetName("A"));
+        System.out.println("sellProduct(10000): " + pen.sellProduct(10_000));
+        System.out.println("applyDiscount(200): " + pen.applyDiscount(200));
+
+        System.out.println("\n=== CATEGORY TEST ===");
+        System.out.println("Add product (1st): " + stationery.addProduct(pen));
+        System.out.println("Add product (2nd): " + stationery.addProduct(pen));
+
+        stationery.displayCategoryInfo();
+    }
+}
