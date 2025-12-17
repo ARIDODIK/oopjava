@@ -1,0 +1,207 @@
+import java.util.List;
+
+/* =========================
+   PRICE POLICY INTERFACE
+   ========================= */
+interface PricePolicy {
+    String name();
+    double apply(Product p, int qty);
+
+    default boolean applicableTo(Product p) {
+        return true;
+    }
+}
+
+/* =========================
+   PRICE POLICIES
+   ========================= */
+class PercentageOff implements PricePolicy {
+    private final double percent;
+
+    public PercentageOff(double percent) {
+        this.percent = Math.max(0, Math.min(90, percent));
+    }
+
+    public String name() {
+        return "Percent-" + percent + "%";
+    }
+
+    public double apply(Product p, int qty) {
+        double unit = p.getPrice() * (1 - percent / 100.0);
+        return unit * Math.max(0, qty);
+    }
+}
+
+class FixedOff implements PricePolicy {
+    private final double amount;
+
+    public FixedOff(double amount) {
+        this.amount = Math.max(0, amount);
+    }
+
+    public String name() {
+        return "Fixed-" + amount;
+    }
+
+    public double apply(Product p, int qty) {
+        double unit = Math.max(0, p.getPrice() - amount);
+        return unit * Math.max(0, qty);
+    }
+}
+
+class BogoHalf implements PricePolicy {
+    public String name() {
+        return "BOGO-HALF";
+    }
+
+    public double apply(Product p, int qty) {
+        double price = p.getPrice();
+        int pairs = Math.max(0, qty) / 2;
+        int singles = Math.max(0, qty) % 2;
+        return pairs * (price * 1.5) + singles * price;
+    }
+}
+
+/* =========================
+   PRODUCT (BASE)
+   ========================= */
+class Product {
+    protected String id;
+    protected String name;
+    protected double price;
+
+    public Product(String id, String name, double price) {
+        this.id = id;
+        this.name = name;
+        this.price = Math.max(0, price);
+    }
+
+    public String getName() { return name; }
+    public double getPrice() { return price; }
+
+    /* ===== OVERLOADING ===== */
+
+    public double finalPrice() {
+        return price;
+    }
+
+    public double finalPrice(int qty) {
+        if (qty <= 0) return 0.0;
+        return price * qty;
+    }
+
+    public double finalPrice(int qty, PricePolicy policy) {
+        if (qty <= 0) return 0.0;
+        if (policy == null || !policy.applicableTo(this)) {
+            return finalPrice(qty);
+        }
+        return policy.apply(this, qty);
+    }
+
+    public double finalPrice(int qty, List<PricePolicy> policies) {
+        if (qty <= 0) return 0.0;
+        if (policies == null || policies.isEmpty()) {
+            return finalPrice(qty);
+        }
+        double best = Double.POSITIVE_INFINITY;
+        for (PricePolicy p : policies) {
+            double v = finalPrice(qty, p);
+            if (v < best) best = v;
+        }
+        return best;
+    }
+}
+
+/* =========================
+   PHYSICAL PRODUCT
+   ========================= */
+class PhysicalProduct extends Product {
+    private double weightKg;
+    private double l, w, h;
+
+    public PhysicalProduct(String id, String name, double price, double weightKg) {
+        super(id, name, price);
+        this.weightKg = weightKg;
+    }
+
+    public boolean trySetDimensions(double l, double w, double h) {
+        if (l < 0 || w < 0 || h < 0) return false;
+        this.l = l; this.w = w; this.h = h;
+        return true;
+    }
+
+    public double estimateShippingCost() {
+        double volumetric = (l * w * h) / 5000.0;
+        double billable = Math.max(weightKg, volumetric);
+        return billable * 100;
+    }
+
+    @Override
+    public double finalPrice(int qty, PricePolicy policy) {
+        double base = super.finalPrice(qty, policy);
+        return base + estimateShippingCost();
+    }
+
+    @Override
+    public double finalPrice(int qty, List<PricePolicy> policies) {
+        double base = super.finalPrice(qty, policies);
+        return base + estimateShippingCost();
+    }
+}
+
+/* =========================
+   DIGITAL PRODUCT
+   ========================= */
+class DigitalProduct extends Product {
+    private double sizeMb;
+
+    public DigitalProduct(String id, String name, double price, double sizeMb) {
+        super(id, name, price);
+        this.sizeMb = sizeMb;
+    }
+
+    @Override
+    public double finalPrice(int qty, PricePolicy policy) {
+        if (policy instanceof BogoHalf) {
+            return super.finalPrice(qty);
+        }
+        return super.finalPrice(qty, policy);
+    }
+}
+
+/* =========================
+   DEMO — ShopDemo5
+   ========================= */
+public class Main {
+    public static void main(String[] args) {
+
+        PhysicalProduct laptop =
+                new PhysicalProduct("P1", "Laptop", 450_000, 1.8);
+        laptop.trySetDimensions(35, 24, 2);
+
+        DigitalProduct ebook =
+                new DigitalProduct("D1", "E-Book", 1500, 12.5);
+
+        List<Product> products = List.of(laptop, ebook);
+        List<PricePolicy> rules = List.of(
+                new PercentageOff(10),
+                new FixedOff(50),
+                new BogoHalf()
+        );
+
+        for (Product p : products) {
+            for (int qty : new int[]{1, 2}) {
+                System.out.println("\n== " + p.getName() + " | qty=" + qty);
+                System.out.println("Base: " + p.finalPrice(qty));
+
+                for (PricePolicy r : rules) {
+                    System.out.println(r.name() + ": " +
+                            p.finalPrice(qty, r));
+                }
+
+                System.out.println("Best: " +
+                        p.finalPrice(qty, rules));
+            }
+        }
+    }
+}
